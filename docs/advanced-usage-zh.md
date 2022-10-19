@@ -1,15 +1,17 @@
-# 高级用法
+[English](advanced-usage.md) | [中文](advanced-usage-zh.md)
 
-*其他语言版本: [English](advanced-usage.md), [简体中文](advanced-usage-zh.md).*
+# 高级用法
 
 * [使用其他的 DNS 服务器](#使用其他的-dns-服务器)
 * [域名和更改服务器 IP](#域名和更改服务器-ip)
+* [仅限 IKEv2 的 VPN](#仅限-ikev2-的-vpn)
 * [VPN 内网 IP 和流量](#vpn-内网-ip-和流量)
+* [自定义 VPN 子网](#自定义-vpn-子网)
 * [转发端口到 VPN 客户端](#转发端口到-vpn-客户端)
 * [VPN 分流](#vpn-分流)
 * [访问 VPN 服务器的网段](#访问-vpn-服务器的网段)
-* [仅限 IKEv2 的 VPN](#仅限-ikev2-的-vpn)
 * [更改 IPTables 规则](#更改-iptables-规则)
+* [部署 Google BBR 拥塞控制](#部署-google-bbr-拥塞控制)
 
 ## 使用其他的 DNS 服务器
 
@@ -19,7 +21,6 @@
 
 ```
 sudo VPN_DNS_SRV1=1.1.1.1 VPN_DNS_SRV2=1.0.0.1 sh vpn.sh
-sudo VPN_DNS_SRV1=1.1.1.1 VPN_DNS_SRV2=1.0.0.1 ikev2.sh --auto
 ```
 
 在某些情况下，你可能希望 VPN 客户端仅使用指定的 DNS 服务器来解析内部域名，并使用其本地配置的 DNS 服务器来解析所有其他域名。这可以使用 `modecfgdomains` 选项进行配置，例如 `modecfgdomains="internal.example.com, home"`。对于 IKEv2，将此选项添加到 `/etc/ipsec.d/ikev2.conf` 中的 `conn ikev2-cp` 小节。对于 IPsec/XAuth ("Cisco IPsec")，将此选项添加到 `/etc/ipsec.conf` 中的 `conn xauth-psk` 小节。然后运行 `service ipsec restart`。IPsec/L2TP 模式不支持此选项。
@@ -28,13 +29,34 @@ sudo VPN_DNS_SRV1=1.1.1.1 VPN_DNS_SRV2=1.0.0.1 ikev2.sh --auto
 
 对于 [IPsec/L2TP](clients-zh.md) 和 [IPsec/XAuth ("Cisco IPsec")](clients-xauth-zh.md) 模式，你可以在不需要额外配置的情况下使用一个域名（比如 `vpn.example.com`）而不是 IP 地址连接到 VPN 服务器。另外，一般来说，在服务器的 IP 更改后，比如在恢复一个映像到具有不同 IP 的新服务器后，VPN 会继续正常工作，虽然可能需要重启服务器。
 
-对于 [IKEv2](ikev2-howto-zh.md) 模式，如果你想要 VPN 在服务器的 IP 更改后继续正常工作，则必须在 [配置 IKEv2](ikev2-howto-zh.md) 时指定一个域名作为 VPN 服务器的地址。该域名必须是一个全称域名(FQDN)。它将包含在生成的服务器证书中，这是 VPN 客户端连接所必需的。示例如下：
+对于 [IKEv2](ikev2-howto-zh.md) 模式，如果你想要 VPN 在服务器的 IP 更改后继续正常工作，参见 [这一小节](ikev2-howto-zh.md#更改-ikev2-服务器地址)。或者，你也可以在 [配置 IKEv2](ikev2-howto-zh.md#使用辅助脚本配置-ikev2) 时指定一个域名作为 IKEv2 服务器地址。该域名必须是一个全称域名(FQDN)。示例如下：
 
 ```
 sudo VPN_DNS_NAME='vpn.example.com' ikev2.sh --auto
 ```
 
-另外，你也可以自定义 IKEv2 安装选项，通过在运行 [辅助脚本](ikev2-howto-zh.md#使用辅助脚本配置-ikev2) 时去掉 `--auto` 参数来实现。
+另外，你也可以自定义 IKEv2 选项，通过在运行 [辅助脚本](ikev2-howto-zh.md#使用辅助脚本配置-ikev2) 时去掉 `--auto` 参数来实现。
+
+## 仅限 IKEv2 的 VPN
+
+使用 Libreswan 4.2 或更新版本，高级用户可以为 VPN 服务器启用仅限 IKEv2 模式。当启用该模式时，VPN 客户端仅能使用 IKEv2 连接到 VPN 服务器。所有的 IKEv1 连接（包括 IPsec/L2TP 和 IPsec/XAuth ("Cisco IPsec") 模式）将被丢弃。
+
+要启用仅限 IKEv2 模式，首先按照 [自述文件](../README-zh.md) 中的说明安装 VPN 服务器并且配置 IKEv2。然后运行 [辅助脚本](../extras/ikev2onlymode.sh) 并按提示操作。
+
+```bash
+wget https://get.vpnsetup.net/ikev2only -O ikev2only.sh
+sudo bash ikev2only.sh
+```
+
+要禁用仅限 IKEv2 模式，再次运行辅助脚本并选择适当的选项。
+
+<details>
+<summary>
+另外，你也可以手动启用仅限 IKEv2 模式。
+</summary>
+
+另外，你也可以手动启用仅限 IKEv2 模式。首先使用 `ipsec --version` 命令检查 Libreswan 版本，并 [更新 Libreswan](../README-zh.md#升级libreswan)（如果需要）。然后编辑 VPN 服务器上的 `/etc/ipsec.conf`。在 `config setup` 小节的末尾添加 `ikev1-policy=drop`，开头必须空两格。保存文件并运行 `service ipsec restart`。在完成后，你可以使用 `ipsec status` 命令来验证仅启用了 `ikev2-cp` 连接。
+</details>
 
 ## VPN 内网 IP 和流量
 
@@ -157,6 +179,39 @@ iptables -I FORWARD 4 -i ppp+ -d 192.168.43.0/24 -j DROP
 iptables -I FORWARD 5 -s 192.168.43.0/24 -o ppp+ -j DROP
 ```
 
+## 自定义 VPN 子网
+
+默认情况下，IPsec/L2TP VPN 客户端将使用内部 VPN 子网 `192.168.42.0/24`，而 IPsec/XAuth ("Cisco IPsec") 和 IKEv2 VPN 客户端将使用内部 VPN 子网 `192.168.43.0/24`。有关更多详细信息，请阅读上一节。
+
+对于大多数用例，没有必要也 **不建议** 自定义这些子网。但是，如果你的用例需要它，你可以在安装 VPN 时指定自定义子网。
+
+**重要：** 你只能在 **初始 VPN 安装时** 指定自定义子网。如果 IPsec VPN 已安装，你 **必须** 首先 [卸载 VPN](uninstall-zh.md)，然后指定自定义子网并重新安装。否则，VPN 可能会停止工作。
+
+<details>
+<summary>
+首先，请阅读上面的重要说明。然后点这里查看示例。
+</summary>
+
+```
+# 示例：为 IPsec/L2TP 模式指定自定义 VPN 子网
+# 注：必须指定所有三个变量。
+sudo VPN_L2TP_NET=10.1.0.0/16 \
+VPN_L2TP_LOCAL=10.1.0.1 \
+VPN_L2TP_POOL=10.1.0.10-10.1.254.254 \
+sh vpn.sh
+```
+
+```
+# 示例：为 IPsec/XAuth 和 IKEv2 模式指定自定义 VPN 子网
+# 注：必须指定以下两个变量。
+sudo VPN_XAUTH_NET=10.2.0.0/16 \
+VPN_XAUTH_POOL=10.2.0.10-10.2.254.254 \
+sh vpn.sh
+```
+
+在上面的例子中，`VPN_L2TP_LOCAL` 是在 IPsec/L2TP 模式下的 VPN 服务器的内网 IP。`VPN_L2TP_POOL` 和 `VPN_XAUTH_POOL` 是为 VPN 客户端自动分配的 IP 地址池。
+</details>
+
 ## 转发端口到 VPN 客户端
 
 在某些情况下，你可能想要将 VPN 服务器上的端口转发到一个已连接的 VPN 客户端。这可以通过在 VPN 服务器上添加 IPTables 规则来实现。
@@ -185,7 +240,7 @@ iptables -t nat -A PREROUTING -p udp --dport 123 -j DNAT --to 192.168.43.10
 
 ## VPN 分流
 
-在启用 [VPN 分流 (split tunneling)](https://wiki.strongswan.org/projects/strongswan/wiki/ForwardingAndSplitTunneling#Split-Tunneling) 时，VPN 客户端将仅通过 VPN 隧道发送特定目标子网的流量。其他流量 **不会** 通过 VPN 隧道。VPN 分流 [有一些局限性](https://wiki.strongswan.org/projects/strongswan/wiki/ForwardingAndSplitTunneling#Split-Tunneling)，而且并非所有的 VPN 客户端都支持。
+在启用 VPN 分流 (split tunneling) 时，VPN 客户端将仅通过 VPN 隧道发送特定目标子网的流量。其他流量 **不会** 通过 VPN 隧道。VPN 分流有一些局限性，而且并非所有的 VPN 客户端都支持。
 
 高级用户可以为 [IPsec/XAuth ("Cisco IPsec")](clients-xauth-zh.md) 和/或 [IKEv2](ikev2-howto-zh.md) 模式启用 VPN 分流。这是可选的。IPsec/L2TP 模式 **不支持** 此功能。
 
@@ -197,13 +252,8 @@ IPsec/XAuth ("Cisco IPsec") 模式：启用 VPN 分流 (split tunneling)
 下面的示例 **仅适用于** IPsec/XAuth ("Cisco IPsec") 模式。这些命令必须用 `root` 账户运行。
 
 1. 编辑 VPN 服务器上的 `/etc/ipsec.conf`。在 `conn xauth-psk` 小节中，将 `leftsubnet=0.0.0.0/0` 替换为你想要 VPN 客户端通过 VPN 隧道发送流量的子网。例如：   
-   对于单个子网：
    ```
    leftsubnet=10.123.123.0/24
-   ```
-   对于多个子网（使用 `leftsubnets`）：
-   ```
-   leftsubnets="10.123.123.0/24,10.100.0.0/16"
    ```
 1. **（重要）** 重启 IPsec 服务：
    ```
@@ -219,13 +269,8 @@ IKEv2 模式：启用 VPN 分流 (split tunneling)
 下面的示例 **仅适用于** IKEv2 模式。这些命令必须用 `root` 账户运行。
 
 1. 编辑 VPN 服务器上的 `/etc/ipsec.d/ikev2.conf`。在 `conn ikev2-cp` 小节中，将 `leftsubnet=0.0.0.0/0` 替换为你想要 VPN 客户端通过 VPN 隧道发送流量的子网。例如：   
-   对于单个子网：
    ```
    leftsubnet=10.123.123.0/24
-   ```
-   对于多个子网（使用 `leftsubnets`）：
-   ```
-   leftsubnets="10.123.123.0/24,10.100.0.0/16"
    ```
 1. **（重要）** 重启 IPsec 服务：
    ```
@@ -250,21 +295,23 @@ iptables -t nat -I POSTROUTING -s 192.168.43.0/24 -o "$netif" -m policy --dir ou
 iptables -t nat -I POSTROUTING -s 192.168.42.0/24 -o "$netif" -j MASQUERADE
 ```
 
-## 仅限 IKEv2 的 VPN
-
-Libreswan 4.2 和更新版本支持 `ikev1-policy` 配置选项。使用此选项，高级用户可以设置仅限 IKEv2 的 VPN，即 VPN 服务器仅接受 IKEv2 连接，而 IKEv1 连接（包括 IPsec/L2TP 和 IPsec/XAuth ("Cisco IPsec") 模式）将被丢弃。
-
-要设置仅限 IKEv2 的 VPN，首先按照 [自述文件](../README-zh.md) 中的说明安装 VPN 服务器并且配置 IKEv2。然后使用 `ipsec --version` 命令检查 Libreswan 版本并 [更新 Libreswan](../README-zh.md#升级libreswan)（如果需要）。下一步，编辑 VPN 服务器上的 `/etc/ipsec.conf`。在 `config setup` 小节的末尾添加 `ikev1-policy=drop`，开头必须空两格。保存文件并运行 `service ipsec restart`。在完成后，你可以使用 `ipsec status` 命令来验证仅启用了 `ikev2-cp` 连接。
-
 ## 更改 IPTables 规则
 
 如果你想要在安装后更改 IPTables 规则，请编辑 `/etc/iptables.rules` 和/或 `/etc/iptables/rules.v4` (Ubuntu/Debian)，或者 `/etc/sysconfig/iptables` (CentOS/RHEL)。然后重启服务器。
 
-**注：** 如果使用 Rocky Linux, AlmaLinux 或者 CentOS/RHEL 8 并且在安装 VPN 时 firewalld 正在运行，则可能已配置 nftables。在这种情况下，编辑 `/etc/sysconfig/nftables.conf` 而不是 `/etc/sysconfig/iptables`。
+**注：** 如果使用 Rocky Linux, AlmaLinux, Oracle Linux 8 或者 CentOS/RHEL 8 并且在安装 VPN 时 firewalld 正在运行，则可能已配置 nftables。在这种情况下，编辑 `/etc/sysconfig/nftables.conf` 而不是 `/etc/sysconfig/iptables`。
+
+## 部署 Google BBR 拥塞控制
+
+VPN 服务器搭建完成后，可以通过部署 Google BBR 拥塞控制算法提升性能。
+
+这通常只需要在配置文件 `/etc/sysctl.conf` 中插入设定即可完成。但是部分 Linux 发行版可能需要额外更新 Linux 内核。
+
+详细的部署方法，可以参考[这篇文档](bbr-zh.md)。
 
 ## 授权协议
 
-版权所有 (C) 2021 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
+版权所有 (C) 2021-2022 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
 
 [![Creative Commons License](https://i.creativecommons.org/l/by-sa/3.0/88x31.png)](http://creativecommons.org/licenses/by-sa/3.0/)   
 这个项目是以 [知识共享署名-相同方式共享3.0](http://creativecommons.org/licenses/by-sa/3.0/) 许可协议授权。   

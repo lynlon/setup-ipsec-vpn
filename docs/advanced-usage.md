@@ -1,15 +1,17 @@
-# Advanced Usage
+[English](advanced-usage.md) | [中文](advanced-usage-zh.md)
 
-*Read this in other languages: [English](advanced-usage.md), [简体中文](advanced-usage-zh.md).*
+# Advanced Usage
 
 * [Use alternative DNS servers](#use-alternative-dns-servers)
 * [DNS name and server IP changes](#dns-name-and-server-ip-changes)
+* [IKEv2-only VPN](#ikev2-only-vpn)
 * [Internal VPN IPs and traffic](#internal-vpn-ips-and-traffic)
+* [Customize VPN subnets](#customize-vpn-subnets)
 * [Port forwarding to VPN clients](#port-forwarding-to-vpn-clients)
 * [Split tunneling](#split-tunneling)
 * [Access VPN server's subnet](#access-vpn-servers-subnet)
-* [IKEv2 only VPN](#ikev2-only-vpn)
 * [Modify IPTables rules](#modify-iptables-rules)
+* [Deploy Google BBR congestion control](#deploy-google-bbr-congestion-control)
 
 ## Use alternative DNS servers
 
@@ -19,7 +21,6 @@ Advanced users can define `VPN_DNS_SRV1` and optionally `VPN_DNS_SRV2` when runn
 
 ```
 sudo VPN_DNS_SRV1=1.1.1.1 VPN_DNS_SRV2=1.0.0.1 sh vpn.sh
-sudo VPN_DNS_SRV1=1.1.1.1 VPN_DNS_SRV2=1.0.0.1 ikev2.sh --auto
 ```
 
 In certain circumstances, you may want VPN clients to use the specified DNS server(s) only for resolving internal domain name(s), and use their locally configured DNS servers to resolve all other domain names. This can be configured using the `modecfgdomains` option, e.g. `modecfgdomains="internal.example.com, home"`. Add this option to section `conn ikev2-cp` in `/etc/ipsec.d/ikev2.conf` for IKEv2, and to section `conn xauth-psk` in `/etc/ipsec.conf` for IPsec/XAuth ("Cisco IPsec"). Then run `service ipsec restart`. IPsec/L2TP mode does not support this option.
@@ -28,13 +29,34 @@ In certain circumstances, you may want VPN clients to use the specified DNS serv
 
 For [IPsec/L2TP](clients.md) and [IPsec/XAuth ("Cisco IPsec")](clients-xauth.md) modes, you may use a DNS name (e.g. `vpn.example.com`) instead of an IP address to connect to the VPN server, without additional configuration. In addition, the VPN should generally continue to work after server IP changes, such as after restoring a snapshot to a new server with a different IP, although a reboot may be required.
 
-For [IKEv2](ikev2-howto.md) mode, if you want the VPN to continue to work after server IP changes, you must specify a DNS name to be used as the VPN server's address when [setting up IKEv2](ikev2-howto.md). The DNS name must be a fully qualified domain name (FQDN). It will be included in the generated server certificate, which is required for VPN clients to connect. Example:
+For [IKEv2](ikev2-howto.md) mode, if you want the VPN to continue to work after server IP changes, read [this section](ikev2-howto.md#change-ikev2-server-address). Alternatively, you may specify a DNS name for the IKEv2 server address when [setting up IKEv2](ikev2-howto.md#set-up-ikev2-using-helper-script). The DNS name must be a fully qualified domain name (FQDN). Example:
 
 ```
 sudo VPN_DNS_NAME='vpn.example.com' ikev2.sh --auto
 ```
 
-Alternatively, you may customize IKEv2 setup options by running the [helper script](ikev2-howto.md#set-up-ikev2-using-helper-script) without the `--auto` parameter.
+Alternatively, you may customize IKEv2 options by running the [helper script](ikev2-howto.md#set-up-ikev2-using-helper-script) without the `--auto` parameter.
+
+## IKEv2-only VPN
+
+Using Libreswan 4.2 or newer, advanced users can enable IKEv2-only mode on the VPN server. With IKEv2-only mode enabled, VPN clients can only connect to the VPN server using IKEv2. All IKEv1 connections (including IPsec/L2TP and IPsec/XAuth ("Cisco IPsec") modes) will be dropped.
+
+To enable IKEv2-only mode, first install the VPN server and set up IKEv2 using instructions in the [README](../README.md). Then run the [helper script](../extras/ikev2onlymode.sh) and follow the prompts.
+
+```bash
+wget https://get.vpnsetup.net/ikev2only -O ikev2only.sh
+sudo bash ikev2only.sh
+```
+
+To disable IKEv2-only mode, run the helper script again and select the appropriate option.
+
+<details>
+<summary>
+Alternatively, you may manually enable IKEv2-only mode.
+</summary>
+
+Alternatively, you may manually enable IKEv2-only mode. First check Libreswan version using `ipsec --version`, and [update Libreswan](../README.md#upgrade-libreswan) if needed. Then edit `/etc/ipsec.conf` on the VPN server. Append `ikev1-policy=drop` to the end of the `config setup` section, indented by two spaces. Save the file and run `service ipsec restart`. When finished, you can run `ipsec status` to verify that only the `ikev2-cp` connection is enabled.
+</details>
 
 ## Internal VPN IPs and traffic
 
@@ -157,6 +179,39 @@ iptables -I FORWARD 4 -i ppp+ -d 192.168.43.0/24 -j DROP
 iptables -I FORWARD 5 -s 192.168.43.0/24 -o ppp+ -j DROP
 ```
 
+## Customize VPN subnets
+
+By default, IPsec/L2TP VPN clients will use internal VPN subnet `192.168.42.0/24`, while IPsec/XAuth ("Cisco IPsec") and IKEv2 VPN clients will use internal VPN subnet `192.168.43.0/24`. For more details, read the previous section.
+
+For most use cases, it is NOT necessary and NOT recommended to customize these subnets. If your use case requires it, however, you may specify custom subnet(s) when installing the VPN.
+
+**Important:** You may only specify custom subnets **during initial VPN install**. If the IPsec VPN is already installed, you **must** first [uninstall the VPN](uninstall.md), then specify custom subnets and re-install. Otherwise, the VPN may stop working.
+
+<details>
+<summary>
+First, read the important note above. Then click here for examples.
+</summary>
+
+```
+# Example: Specify custom VPN subnet for IPsec/L2TP mode
+# Note: All three variables must be specified.
+sudo VPN_L2TP_NET=10.1.0.0/16 \
+VPN_L2TP_LOCAL=10.1.0.1 \
+VPN_L2TP_POOL=10.1.0.10-10.1.254.254 \
+sh vpn.sh
+```
+
+```
+# Example: Specify custom VPN subnet for IPsec/XAuth and IKEv2 modes
+# Note: Both variables must be specified.
+sudo VPN_XAUTH_NET=10.2.0.0/16 \
+VPN_XAUTH_POOL=10.2.0.10-10.2.254.254 \
+sh vpn.sh
+```
+
+In the examples above, `VPN_L2TP_LOCAL` is the VPN server's internal IP for IPsec/L2TP mode. `VPN_L2TP_POOL` and `VPN_XAUTH_POOL` are the pools of auto-assigned IP addresses for VPN clients.
+</details>
+
 ## Port forwarding to VPN clients
 
 In certain circumstances, you may want to forward port(s) on the VPN server to a connected VPN client. This can be done by adding IPTables rules on the VPN server.
@@ -185,7 +240,7 @@ If you want the rules to persist after reboot, you may add these commands to `/e
 
 ## Split tunneling
 
-With [split tunneling](https://wiki.strongswan.org/projects/strongswan/wiki/ForwardingAndSplitTunneling#Split-Tunneling), VPN clients will only send traffic for specific destination subnet(s) through the VPN tunnel. Other traffic will NOT go through the VPN tunnel. Split tunneling has [some limitations](https://wiki.strongswan.org/projects/strongswan/wiki/ForwardingAndSplitTunneling#Split-Tunneling), and is not supported by all VPN clients.
+With split tunneling, VPN clients will only send traffic for a specific destination subnet through the VPN tunnel. Other traffic will NOT go through the VPN tunnel. Split tunneling has some limitations, and is not supported by all VPN clients.
 
 Advanced users can optionally enable split tunneling for the [IPsec/XAuth ("Cisco IPsec")](clients-xauth.md) and/or [IKEv2](ikev2-howto.md) modes. Expand for details. IPsec/L2TP mode does NOT support this feature.
 
@@ -196,14 +251,9 @@ IPsec/XAuth ("Cisco IPsec") mode: Enable split tunneling
 
 The example below **ONLY** applies to IPsec/XAuth ("Cisco IPsec") mode. Commands must be run as `root`.
 
-1. Edit `/etc/ipsec.conf` on the VPN server. In the section `conn xauth-psk`, replace `leftsubnet=0.0.0.0/0` with the subnet(s) you want VPN clients to send traffic through the VPN tunnel. For example:   
-   For a single subnet:
+1. Edit `/etc/ipsec.conf` on the VPN server. In the section `conn xauth-psk`, replace `leftsubnet=0.0.0.0/0` with the subnet you want VPN clients to send traffic through the VPN tunnel. For example:   
    ```
    leftsubnet=10.123.123.0/24
-   ```
-   For multiple subnets (use `leftsubnets` instead):
-   ```
-   leftsubnets="10.123.123.0/24,10.100.0.0/16"
    ```
 1. **(Important)** Restart the IPsec service:
    ```
@@ -218,14 +268,9 @@ IKEv2 mode: Enable split tunneling
 
 The example below **ONLY** applies to IKEv2 mode. Commands must be run as `root`.
 
-1. Edit `/etc/ipsec.d/ikev2.conf` on the VPN server. In the section `conn ikev2-cp`, replace `leftsubnet=0.0.0.0/0` with the subnet(s) you want VPN clients to send traffic through the VPN tunnel. For example:   
-   For a single subnet:
+1. Edit `/etc/ipsec.d/ikev2.conf` on the VPN server. In the section `conn ikev2-cp`, replace `leftsubnet=0.0.0.0/0` with the subnet you want VPN clients to send traffic through the VPN tunnel. For example:   
    ```
    leftsubnet=10.123.123.0/24
-   ```
-   For multiple subnets (use `leftsubnets` instead):
-   ```
-   leftsubnets="10.123.123.0/24,10.100.0.0/16"
    ```
 1. **(Important)** Restart the IPsec service:
    ```
@@ -251,21 +296,23 @@ iptables -t nat -I POSTROUTING -s 192.168.43.0/24 -o "$netif" -m policy --dir ou
 iptables -t nat -I POSTROUTING -s 192.168.42.0/24 -o "$netif" -j MASQUERADE
 ```
 
-## IKEv2 only VPN
-
-Libreswan 4.2 and newer versions support the `ikev1-policy` config option. Using this option, advanced users can set up an IKEv2-only VPN, i.e. only IKEv2 connections are accepted by the VPN server, while IKEv1 connections (including the IPsec/L2TP and IPsec/XAuth ("Cisco IPsec") modes) are dropped.
-
-To set up an IKEv2-only VPN, first install the VPN server and set up IKEv2 using instructions in the [README](../README.md). Then check Libreswan version using `ipsec --version`, and [update Libreswan](../README.md#upgrade-libreswan) if needed. After that, edit `/etc/ipsec.conf` on the VPN server. Append `ikev1-policy=drop` to the end of the `config setup` section, indented by two spaces. Save the file and run `service ipsec restart`. When finished, you can run `ipsec status` to verify that only the `ikev2-cp` connection is enabled.
-
 ## Modify IPTables rules
 
 If you want to modify the IPTables rules after install, edit `/etc/iptables.rules` and/or `/etc/iptables/rules.v4` (Ubuntu/Debian), or `/etc/sysconfig/iptables` (CentOS/RHEL). Then reboot your server.
 
-**Note:** If using Rocky Linux, AlmaLinux or CentOS/RHEL 8 and firewalld was active during VPN setup, nftables may be configured. In this case, edit `/etc/sysconfig/nftables.conf` instead of `/etc/sysconfig/iptables`.
+**Note:** If using Rocky Linux, AlmaLinux, Oracle Linux 8 or CentOS/RHEL 8 and firewalld was active during VPN setup, nftables may be configured. In this case, edit `/etc/sysconfig/nftables.conf` instead of `/etc/sysconfig/iptables`.
+
+## Deploy Google BBR congestion control
+
+After the VPN server is set up, the performance can be improved by deploying the Google BBR congestion control algorithm.
+
+This is usually done by modifying the configuration file `/etc/sysctl.conf`. However, some Linux distributions may additionally require updates to the Linux kernel.
+
+For detailed deployment methods, please refer to [this document](bbr.md).
 
 ## License
 
-Copyright (C) 2021 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
+Copyright (C) 2021-2022 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
 
 [![Creative Commons License](https://i.creativecommons.org/l/by-sa/3.0/88x31.png)](http://creativecommons.org/licenses/by-sa/3.0/)   
 This work is licensed under the [Creative Commons Attribution-ShareAlike 3.0 Unported License](http://creativecommons.org/licenses/by-sa/3.0/)  

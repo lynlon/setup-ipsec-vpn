@@ -1,8 +1,6 @@
+[English](clients-xauth.md) | [中文](clients-xauth-zh.md)
+
 # 配置 IPsec/XAuth VPN 客户端
-
-*其他语言版本: [English](clients-xauth.md), [简体中文](clients-xauth-zh.md).*
-
-**注：** 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。
 
 在成功 [搭建自己的 VPN 服务器](../README-zh.md) 之后，按照下面的步骤来配置你的设备。IPsec/XAuth ("Cisco IPsec") 在 Android, iOS 和 OS X 上均受支持，无需安装额外的软件。Windows 用户可以使用免费的 [Shrew Soft 客户端](https://www.shrew.net/download/vpn)。如果无法连接,请首先检查是否输入了正确的 VPN 登录凭证。
 
@@ -16,9 +14,19 @@ IPsec/XAuth 模式也称为 "Cisco IPsec"。该模式通常能够比 IPsec/L2TP 
   * [iOS (iPhone/iPad)](#ios)
   * [Linux](#linux)
 
+<details>
+<summary>
+如果你喜欢这个项目，可以表达你的支持或感谢。
+</summary>
+
+<a href="https://ko-fi.com/hwdsl2" target="_blank"><img height="36" width="187" src="images/kofi2.png" border="0" alt="Buy Me a Coffee at ko-fi.com" /></a> &nbsp;&nbsp;<a href="https://coindrop.to/hwdsl2" target="_blank"><img src="images/embed-button.png" height="36" width="145" border="0" alt="Coindrop.to me" /></a>
+
+仅限支持者的内容可用。[点击查看详情](https://ko-fi.com/hwdsl2)。
+</details>
+
 ## Windows
 
-**注：** 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。无需安装额外的软件。
+> 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。无需安装额外的软件。
 
 1. 下载并安装免费的 [Shrew Soft VPN 客户端](https://www.shrew.net/download/vpn)。在安装时请选择 **Standard Edition**。   
    **注：** 该 VPN 客户端 **不支持** Windows 10/11。
@@ -42,7 +50,7 @@ VPN 连接成功后，你会在 VPN Connect 状态窗口中看到 **tunnel enabl
 
 ## OS X
 
-**注：** 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。
+> 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。
 
 1. 打开系统偏好设置并转到网络部分。
 1. 在窗口左下角单击 **+** 按钮。
@@ -66,7 +74,13 @@ VPN 连接成功后，你会在 VPN Connect 状态窗口中看到 **tunnel enabl
 
 ## Android
 
-**注：** 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。Android 12 仅支持 [IKEv2](ikev2-howto-zh.md) 模式。
+**重要：** Android 用户应该使用更安全的 [IKEv2 模式](ikev2-howto-zh.md) 连接（推荐）。Android 12+ 仅支持 IKEv2 模式。Android 系统自带的 VPN 客户端对 IPsec/L2TP 和 IPsec/XAuth ("Cisco IPsec") 模式使用安全性较低的 `modp1024` (DH group 2)。
+
+如果你仍然想用 IPsec/XAuth 模式连接，你必须首先编辑 VPN 服务器上的 `/etc/ipsec.conf` 并在 `ike=...` 一行的末尾加上 `,aes256-sha2;modp1024,aes128-sha1;modp1024` 字样。保存文件并运行 `sudo service ipsec restart`。
+
+Docker 用户：在 [你的 env 文件](https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/README-zh.md#如何使用本镜像) 中添加 `VPN_ENABLE_MODP1024=yes`，然后重新创建 Docker 容器。
+
+然后在你的 Android 设备上进行以下步骤：
 
 1. 启动 **设置** 应用程序。
 1. 单击 **网络和互联网**。或者，如果你使用 Android 7 或更早版本，在 **无线和网络** 部分单击 **更多...**。
@@ -90,7 +104,7 @@ VPN 连接成功后，会在通知栏显示图标。最后你可以到 [这里](
 
 ## iOS
 
-**注：** 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。
+> 你也可以使用 [IKEv2](ikev2-howto-zh.md)（推荐）或者 [IPsec/L2TP](clients-zh.md) 模式连接。
 
 1. 进入设置 -> 通用 -> VPN。
 1. 单击 **添加VPN配置...**。
@@ -109,6 +123,8 @@ VPN 连接成功后，会在通知栏显示图标。最后你可以到 [这里](
 如果在连接过程中遇到错误，请参见 [故障排除](clients-zh.md#故障排除)。
 
 ## Linux
+
+> 你也可以使用 [IKEv2](ikev2-howto-zh.md) 模式连接（推荐）。
 
 ### Fedora 和 CentOS
 
@@ -143,7 +159,7 @@ VPN 连接成功后，你可以到 [这里](https://www.ipchicken.com) 检测你
 
 注： 这个协议仅适用于本文档。
 
-版权所有 (C) 2016-2021 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
+版权所有 (C) 2016-2022 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
 基于 [Joshua Lund 的工作](https://github.com/StreisandEffect/streisand/blob/6aa6b6b2735dd829ca8c417d72eb2768a89b6639/playbooks/roles/l2tp-ipsec/templates/instructions.md.j2) (版权所有 2014-2016)
 
 本程序为自由软件，在自由软件联盟发布的[ GNU 通用公共许可协议](https://www.gnu.org/licenses/gpl.html)的约束下，你可以对其进行再发布及修改。协议版本为第三版或（随你）更新的版本。

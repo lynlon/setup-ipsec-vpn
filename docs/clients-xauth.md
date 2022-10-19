@@ -1,8 +1,6 @@
+[English](clients-xauth.md) | [中文](clients-xauth-zh.md)
+
 # Configure IPsec/XAuth VPN Clients
-
-*Read this in other languages: [English](clients-xauth.md), [简体中文](clients-xauth-zh.md).*
-
-**Note:** You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode.
 
 After [setting up your own VPN server](https://github.com/hwdsl2/setup-ipsec-vpn), follow these steps to configure your devices. IPsec/XAuth ("Cisco IPsec") is natively supported by Android, iOS and OS X. There is no additional software to install. Windows users can use the free [Shrew Soft client](https://www.shrew.net/download/vpn). In case you are unable to connect, first check to make sure the VPN credentials were entered correctly.
 
@@ -16,9 +14,19 @@ IPsec/XAuth mode is also called "Cisco IPsec". This mode is generally **faster t
   * [iOS (iPhone/iPad)](#ios)
   * [Linux](#linux)
 
+<details>
+<summary>
+Like this project? You can show your support or appreciation.
+</summary>
+
+<a href="https://ko-fi.com/hwdsl2" target="_blank"><img height="36" width="187" src="images/kofi2.png" border="0" alt="Buy Me a Coffee at ko-fi.com" /></a> &nbsp;&nbsp;<a href="https://coindrop.to/hwdsl2" target="_blank"><img src="images/embed-button.png" height="36" width="145" border="0" alt="Coindrop.to me" /></a>
+
+Supporter-only content is available. [Click to see details](https://ko-fi.com/hwdsl2).
+</details>
+
 ## Windows
 
-**Note:** You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode. No additional software is required.
+> You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode. No additional software is required.
 
 1. Download and install the free [Shrew Soft VPN client](https://www.shrew.net/download/vpn). When prompted during install, select **Standard Edition**.   
    **Note:** This VPN client does NOT support Windows 10/11.
@@ -42,7 +50,7 @@ If you get an error when trying to connect, see [Troubleshooting](clients.md#tro
 
 ## OS X
 
-**Note:** You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode.
+> You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode.
 
 1. Open System Preferences and go to the Network section.
 1. Click the **+** button in the lower-left corner of the window.
@@ -66,7 +74,13 @@ If you get an error when trying to connect, see [Troubleshooting](clients.md#tro
 
 ## Android
 
-**Note:** You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode. Android 12 only supports [IKEv2](ikev2-howto.md) mode.
+**Important:** Android users should instead connect using [IKEv2 mode](ikev2-howto.md) (recommended), which is more secure. Android 12+ only supports IKEv2 mode. The native VPN client in Android uses the less secure `modp1024` (DH group 2) for the IPsec/L2TP and IPsec/XAuth ("Cisco IPsec") modes.
+
+If you still want to connect using IPsec/XAuth mode, you must first edit `/etc/ipsec.conf` on the VPN server. Find the line `ike=...` and append `,aes256-sha2;modp1024,aes128-sha1;modp1024` at the end. Save the file and run `sudo service ipsec restart`.
+
+Docker users: Add `VPN_ENABLE_MODP1024=yes` to [your env file](https://github.com/hwdsl2/docker-ipsec-vpn-server#how-to-use-this-image), then re-create the Docker container.
+
+After that, follow the steps below on your Android device:
 
 1. Launch the **Settings** application.
 1. Tap "Network & internet". Or, if using Android 7 or earlier, tap **More...** in the **Wireless & networks** section.
@@ -90,7 +104,7 @@ If you get an error when trying to connect, see [Troubleshooting](clients.md#tro
 
 ## iOS
 
-**Note:** You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode.
+> You may also connect using [IKEv2](ikev2-howto.md) (recommended) or [IPsec/L2TP](clients.md) mode.
 
 1. Go to Settings -> General -> VPN.
 1. Tap **Add VPN Configuration...**.
@@ -109,6 +123,8 @@ Once connected, you will see a VPN icon in the status bar. You can verify that y
 If you get an error when trying to connect, see [Troubleshooting](clients.md#troubleshooting).
 
 ## Linux
+
+> You may also connect using [IKEv2](ikev2-howto.md) mode (recommended).
 
 ### Fedora and CentOS
 
@@ -143,7 +159,7 @@ This document was adapted from the [Streisand](https://github.com/StreisandEffec
 
 Note: This license applies to this document only.
 
-Copyright (C) 2016-2021 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
+Copyright (C) 2016-2022 [Lin Song](https://github.com/hwdsl2) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
 Based on [the work of Joshua Lund](https://github.com/StreisandEffect/streisand/blob/6aa6b6b2735dd829ca8c417d72eb2768a89b6639/playbooks/roles/l2tp-ipsec/templates/instructions.md.j2) (Copyright 2014-2016)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License](https://www.gnu.org/licenses/gpl.html) as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
